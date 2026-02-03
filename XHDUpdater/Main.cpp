@@ -48,14 +48,18 @@ DISPLAY_MODE displayModes[] =
 
 #define NUM_MODES (sizeof(displayModes) / sizeof(displayModes[0]))
 
-static void WaitButton(ControllerButton controllerButton)
+static bool WaitButton(ControllerButton controllerButton)
 {
 	while (true)
 	{
 		InputManager::ProcessController();
-        if (InputManager::ControllerPressed(controllerButton, -1))
+        if (InputManager::ControllerPressed(ControllerB, -1))
 		{
-			return;
+			return true;
+		}
+        else if (InputManager::ControllerPressed(controllerButton, -1))
+		{
+			return false;
 		}
 		Sleep(100);
 	}
@@ -118,10 +122,19 @@ static void InitTerminalBuffer()
 
     TerminalBuffer::Write("Note: screen will flash when changing X-HD mode.\n\n");
 
-    TerminalBuffer::Write("Press A to Flash\n");
-    WaitButton(ControllerA);
-    TerminalBuffer::Write("Press X to Confirm\n\n");
-    WaitButton(ControllerX);
+    TerminalBuffer::Write("Press A to Flash / B Exit\n");
+    bool exit = WaitButton(ControllerA);
+    if (exit)
+    {
+        HalReturnToFirmware(2);
+    }
+
+    TerminalBuffer::Write("Press X to Confirm / B Exit\n\n");
+    exit = WaitButton(ControllerX);
+    if (exit)
+    {
+        HalReturnToFirmware(2);
+    }
 
     if (currentMode == I2C_HDMI_MODE_APPLICATION)
     {
