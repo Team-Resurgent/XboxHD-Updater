@@ -81,6 +81,8 @@ static void InitTerminalBuffer()
     }
 
     uint8_t currentMode = HDHelper::GetMode();
+    TerminalBuffer::Write("Current Mode: %s\n", currentMode == I2C_HDMI_MODE_APPLICATION ? "Application" : "Bootloader");
+
     if (currentMode == I2C_HDMI_MODE_APPLICATION)
     {
         TerminalBuffer::Write("Current Firmware: ");
