@@ -205,6 +205,9 @@ bool HDHelper::FlashApplication(uint8_t* firmware, uint32_t firmwareSize)
         return false;
     }
 
+    HalWriteSMBusByte(slaveAddr, I2C_HDMI_COMMAND_WRITE_APP_FLASH_MODE, 1);
+    Sleep(1);
+
     uint8_t page = BOOTLOADER_BANK_START;
     while (bytesRemaining > 0)
     {
@@ -232,6 +235,9 @@ bool HDHelper::FlashApplication(uint8_t* firmware, uint32_t firmwareSize)
         bytesRemaining -= chunkSize;
         page++;
     }
+
+    HalWriteSMBusByte(slaveAddr, I2C_HDMI_COMMAND_WRITE_APP_FLASH_MODE, 0);
+    Sleep(1);
 
     free(buffer);
     return true;

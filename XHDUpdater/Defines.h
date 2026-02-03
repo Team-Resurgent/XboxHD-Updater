@@ -30,6 +30,8 @@
 #define I2C_HDMI_COMMAND_WRITE_RAM_INDEX 136 // Write ram buffer index
 #define I2C_HDMI_COMMAND_WRITE_RAM_APPLY 137 // Applies ram buffer to page with value alseo erases + updates crc (validates page for current mode)
 
+#define I2C_HDMI_COMMAND_WRITE_APP_FLASH_MODE 138 // 0 to mark flash ended else to mark flashing began
+
 #define I2C_HDMI_VERSION1 1
 #define I2C_HDMI_VERSION2 2
 #define I2C_HDMI_VERSION3 3
