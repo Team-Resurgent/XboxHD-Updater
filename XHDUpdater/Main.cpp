@@ -401,6 +401,8 @@ void __cdecl main()
 	InitTerminalBuffer();
 
     Utility::HdmiDeviceEnum hdmiDevice = Utility::GetHdmiDevice();
+    Sleep(250);
+
     if (hdmiDevice == Utility::HdmiDeviceXHD) {
         XHDProcess();
     } else if (hdmiDevice == Utility::HdmiDeviceHDPlus) {
