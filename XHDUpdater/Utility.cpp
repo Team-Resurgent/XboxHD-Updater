@@ -43,11 +43,11 @@ uint8_t* Utility::LoadFirmware(uint32_t* firmwareSize)
      
     std::string firmwarePath = appPath;
     EncoderEnum encoder = GetEncoder();
-    if (encoder = EncoderConexant) {
+    if (encoder == EncoderConexant) {
         firmwarePath += "\\firmware_conexant.bin";
-    } else if (encoder = EncoderFocus) {
+    } else if (encoder == EncoderFocus) {
         firmwarePath += "\\firmware_focus.bin";
-    } else if (encoder = EncoderXcalibur) {
+    } else if (encoder == EncoderXcalibur) {
         firmwarePath += "\\firmware_xcalibur.bin";
     }
 
