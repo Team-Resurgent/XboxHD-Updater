@@ -11,6 +11,9 @@
 #include "Resources.h"
 #include "TerminalBuffer.h"
 #include "HDHelper.h"
+#include "HDPlusHelper.h"
+#include "String.h"
+#include "Utility.h"
 #include "ssfn.h"
 
 #include <xgraphics.h>
@@ -63,111 +66,6 @@ static bool WaitButton(ControllerButton controllerButton)
 		}
 		Sleep(100);
 	}
-}
-
-static void InitTerminalBuffer()
-{
-    TerminalBuffer::Clear();
-
-    TerminalBuffer::SetCursor(0, 0);
-    TerminalBuffer::Write("X-HD Firmware Flasher\n");
-    TerminalBuffer::Write("=====================\n");
-    TerminalBuffer::Write("\n");
-
-    TerminalBuffer::Write("Encoder: ");
-    HDHelper::EncoderEnum encoder = HDHelper::GetEncoder();
-    if (encoder == HDHelper::EncoderConexant) {
-        TerminalBuffer::Write("Conexant\n");
-    } else if (encoder == HDHelper::EncoderFocus) {
-        TerminalBuffer::Write("Focus\n");
-    } else if (encoder == HDHelper::EncoderXcalibur) {
-        TerminalBuffer::Write("Xcalibur\n");
-    }
-
-    uint8_t currentMode = HDHelper::GetMode();
-    TerminalBuffer::Write("Current Mode: %s\n", currentMode == I2C_HDMI_MODE_APPLICATION ? "Application" : "Bootloader");
-
-    if (currentMode == I2C_HDMI_MODE_APPLICATION)
-    {
-        TerminalBuffer::Write("Current Firmware: ");
-        uint32_t version = HDHelper::ReadVersion();
-        if (version == 0xFFFFFFFF)
-        {
-            TerminalBuffer::Write("Not detected\n");
-            return;
-        }
-        else
-        {
-            char line[50];
-            _snprintf(line, sizeof(line), "%u.%u.%u\n",
-                (unsigned)((version >> 24) & 0xFF),
-                (unsigned)((version >> 16) & 0xFF),
-                (unsigned)((version >> 8) & 0xFF));
-            TerminalBuffer::Write(line);
-        }
-    }
-
-    TerminalBuffer::Write("Firmware To Write: ");
-    uint32_t firmwareSize = 0;
-    uint8_t* firmwareData = HDHelper::LoadFirmware(&firmwareSize);
-    if (firmwareData == NULL)
-    {
-        TerminalBuffer::Write("Not Found\n\n");
-        return;
-    }
-    else
-    {
-        TerminalBuffer::Write("Found\n\n");
-    }
-
-    TerminalBuffer::Write("Note: screen will flash when changing X-HD mode.\n\n");
-
-    TerminalBuffer::Write("Press A to Flash / B Exit\n");
-    bool exit = WaitButton(ControllerA);
-    if (exit)
-    {
-        HalReturnToFirmware(2);
-    }
-
-    TerminalBuffer::Write("Press X to Confirm / B Exit\n\n");
-    exit = WaitButton(ControllerX);
-    if (exit)
-    {
-        HalReturnToFirmware(2);
-    }
-
-    if (currentMode == I2C_HDMI_MODE_APPLICATION)
-    {
-        TerminalBuffer::Write("Entering Bootloader Mode: ");
-        HDHelper::ChangeMode(I2C_HDMI_MODE_BOOTLOADER);
-        TerminalBuffer::Write("Done\n");
-    }
-
-    if (HDHelper::FlashApplication(firmwareData, firmwareSize) == false)
-    {
-        return;
-    }
-    
-    TerminalBuffer::Write("Entering Application Mode: ");
-    HDHelper::ChangeMode(I2C_HDMI_MODE_APPLICATION);
-    TerminalBuffer::Write("Done\n");
-
-    TerminalBuffer::Write("New Firmware: ");
-    uint32_t version = HDHelper::ReadVersion();
-    if (version == 0xFFFFFFFF)
-    {
-        TerminalBuffer::Write("Not detected\n");
-        return;
-    }
-    else
-    {
-        char line[50];
-        _snprintf(line, sizeof(line), "%u.%u.%u\n",
-            (unsigned)((version >> 24) & 0xFF),
-            (unsigned)((version >> 16) & 0xFF),
-            (unsigned)((version >> 8) & 0xFF));
-        TerminalBuffer::Write(line);
-    }
 }
 
 bool SupportsMode(DISPLAY_MODE mode, DWORD dwVideoStandard, DWORD dwVideoFlags)
@@ -279,6 +177,218 @@ bool CreateDevice()
 	return true;
 }
 
+
+static void InitTerminalBuffer()
+{
+    TerminalBuffer::Clear();
+
+    TerminalBuffer::SetCursor(0, 0);
+    TerminalBuffer::Write("X-HD Firmware Flasher\n");
+    TerminalBuffer::Write("=====================\n");
+    TerminalBuffer::Write("\n");
+
+    TerminalBuffer::Write("Encoder: ");
+    Utility::EncoderEnum encoder = Utility::GetEncoder();
+    if (encoder == Utility::EncoderConexant) {
+        TerminalBuffer::Write("Conexant\n");
+    } else if (encoder == Utility::EncoderFocus) {
+        TerminalBuffer::Write("Focus\n");
+    } else if (encoder == Utility::EncoderXcalibur) {
+        TerminalBuffer::Write("Xcalibur\n");
+    }
+}
+
+static void XHDProcess()
+{
+    TerminalBuffer::Write("HDMI Device: XHD\n");
+
+    uint8_t currentMode = HDHelper::GetMode();
+    TerminalBuffer::Write("Current Mode: %s\n", currentMode == I2C_HDMI_MODE_APPLICATION ? "Application" : "Bootloader");
+
+    if (currentMode == I2C_HDMI_MODE_APPLICATION)
+    {
+        TerminalBuffer::Write("Current Firmware: ");
+        uint32_t version = HDHelper::ReadVersion();
+        if (version == 0xFFFFFFFF)
+        {
+            TerminalBuffer::Write("Not detected\n");
+            return;
+        }
+        else
+        {
+            char line[50];
+            _snprintf(line, sizeof(line), "%u.%u.%u\n",
+                (unsigned)((version >> 24) & 0xFF),
+                (unsigned)((version >> 16) & 0xFF),
+                (unsigned)((version >> 8) & 0xFF));
+            TerminalBuffer::Write(line);
+        }
+    }
+
+    TerminalBuffer::Write("Firmware To Write: ");
+    uint32_t firmwareSize = 0;
+    uint8_t* firmwareData = Utility::LoadFirmware(&firmwareSize);
+    if (firmwareData == NULL)
+    {
+        TerminalBuffer::Write("Not Found\n\n");
+        return;
+    }
+    else
+    {
+        TerminalBuffer::Write("Found\n\n");
+    }
+
+    TerminalBuffer::Write("Note: screen will flash when changing X-HD mode.\n\n");
+
+    TerminalBuffer::Write("Press A to Flash / B Exit\n");
+    bool exit = WaitButton(ControllerA);
+    if (exit)
+    {
+        HalReturnToFirmware(2);
+    }
+
+    TerminalBuffer::Write("Press X to Confirm / B Exit\n\n");
+    exit = WaitButton(ControllerX);
+    if (exit)
+    {
+        HalReturnToFirmware(2);
+    }
+
+    if (currentMode == I2C_HDMI_MODE_APPLICATION)
+    {
+        TerminalBuffer::Write("Entering Bootloader Mode: ");
+        HDHelper::ChangeMode(I2C_HDMI_MODE_BOOTLOADER);
+        TerminalBuffer::Write("Done\n");
+    }
+
+    if (HDHelper::FlashApplication(firmwareData, firmwareSize) == false)
+    {
+        return;
+    }
+    
+    TerminalBuffer::Write("Entering Application Mode: ");
+    HDHelper::ChangeMode(I2C_HDMI_MODE_APPLICATION);
+    TerminalBuffer::Write("Done\n");
+
+    TerminalBuffer::Write("New Firmware: ");
+    uint32_t version = HDHelper::ReadVersion();
+    if (version == 0xFFFFFFFF)
+    {
+        TerminalBuffer::Write("Not detected\n");
+    }
+    else
+    {
+        char line[50];
+        _snprintf(line, sizeof(line), "%u.%u.%u\n",
+            (unsigned)((version >> 24) & 0xFF),
+            (unsigned)((version >> 16) & 0xFF),
+            (unsigned)((version >> 8) & 0xFF));
+        TerminalBuffer::Write(line);
+    }
+
+    Sleep(3000);
+    TerminalBuffer::Write("\nRebooting...");
+    Utility::Reboot();
+}
+
+static void HDPlusProcess()
+{
+    TerminalBuffer::Write("HDMI Device: HDPlus\n");
+
+    uint8_t currentMode = HDPlusHelper::GetMode();
+    TerminalBuffer::Write("Current Mode: %s\n", currentMode == HDPLUS_II2C_HDMI_MODE_APPLICATION ? "Application" : "Bootloader");
+
+    if (currentMode == HDPLUS_II2C_HDMI_MODE_APPLICATION)
+    {
+        TerminalBuffer::Write("Current Firmware: ");
+        uint32_t version = HDPlusHelper::ReadVersion();
+        if (version == 0xFFFFFFFF)
+        {
+            TerminalBuffer::Write("Not detected\n");
+            return;
+        }
+        else
+        {
+            char line[50];
+            _snprintf(line, sizeof(line), "%u.%u.%u\n",
+                (unsigned)((version >> 24) & 0xFF),
+                (unsigned)((version >> 16) & 0xFF),
+                (unsigned)((version >> 8) & 0xFF));
+            TerminalBuffer::Write(line);
+        }
+    }
+
+    TerminalBuffer::Write("Firmware To Write: ");
+    uint32_t firmwareSize = 0;
+    uint8_t* firmwareData = Utility::LoadFirmware(&firmwareSize);
+    if (firmwareData == NULL)
+    {
+        TerminalBuffer::Write("Not Found\n\n");
+        return;
+    }
+    else
+    {
+        TerminalBuffer::Write("Found\n\n");
+    }
+
+    TerminalBuffer::Write("Note: screen will flash when changing HDPlus mode.\n\n");
+
+    TerminalBuffer::Write("Press A to Flash / B Exit\n");
+    bool exit = WaitButton(ControllerA);
+    if (exit)
+    {
+        HalReturnToFirmware(2);
+    }
+
+    TerminalBuffer::Write("Press X to Confirm / B Exit\n\n");
+    exit = WaitButton(ControllerX);
+    if (exit)
+    {
+        HalReturnToFirmware(2);
+    }
+
+    if (currentMode == HDPLUS_II2C_HDMI_MODE_APPLICATION)
+    {
+        TerminalBuffer::Write("Entering Bootloader Mode: ");
+        HDPlusHelper::ChangeMode(HDPLUS_II2C_HDMI_MODE_BOOTLOADER | HDPLUS_II2C_HDMI_MODE_ENABLE_FLASH, HDPLUS_II2C_HDMI_MODE_BOOTLOADER);
+        TerminalBuffer::Write("Done\n");
+    }
+
+    if (HDPlusHelper::FlashApplication(firmwareData, firmwareSize) == false)
+    {
+        return;
+    }
+
+    TerminalBuffer::Write("Entering Application Mode: ");
+    HDPlusHelper::ChangeMode(HDPLUS_II2C_HDMI_MODE_APPLICATION | HDPLUS_II2C_HDMI_MODE_ENABLE_APPLICATION, HDPLUS_II2C_HDMI_MODE_ENABLE_APPLICATION);
+    TerminalBuffer::Write("Done\n");
+
+    if (HDHelper::FlashBootloader(firmwareData, firmwareSize) == false)
+    {
+        return;
+    }
+
+    TerminalBuffer::Write("New Firmware: ");
+    uint32_t version = HDHelper::ReadVersion();
+    if (version == 0xFFFFFFFF)
+    {
+        TerminalBuffer::Write("Not detected\n");
+    }
+    else
+    {
+        char line[50];
+        _snprintf(line, sizeof(line), "%u.%u.%u\n",
+            (unsigned)((version >> 24) & 0xFF),
+            (unsigned)((version >> 16) & 0xFF),
+            (unsigned)((version >> 8) & 0xFF));
+        TerminalBuffer::Write(line);
+    }
+
+    Sleep(3000);
+    TerminalBuffer::Write("\nRebooting...");
+    Utility::Reboot();
+}
+
 void __cdecl main()
 {
 	Debug::Print("Welcome to Xbox HD Updater\n");
@@ -288,9 +398,17 @@ void __cdecl main()
 	Drawing::GenerateBitmapFont();
 
     InputManager::Init();
-	
 	InitTerminalBuffer();
 
+    Utility::HdmiDeviceEnum hdmiDevice = Utility::GetHdmiDevice();
+    if (hdmiDevice == Utility::HdmiDeviceXHD) {
+        XHDProcess();
+    } else if (hdmiDevice == Utility::HdmiDeviceHDPlus) {
+        HDPlusProcess();
+    } else {
+        TerminalBuffer::Write("HDMI Device: Not detected\n");
+    }
+    
     TerminalBuffer::Write("\nPress A to Exit");
     WaitButton(ControllerA);
     HalReturnToFirmware(2);

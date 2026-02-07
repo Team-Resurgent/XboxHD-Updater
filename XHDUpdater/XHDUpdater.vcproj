@@ -173,6 +173,12 @@
 				RelativePath=".\HDHelper.h">
 			</File>
 			<File
+				RelativePath=".\HDPlusHelper.cpp">
+			</File>
+			<File
+				RelativePath=".\HDPlusHelper.h">
+			</File>
+			<File
 				RelativePath=".\InputManager.cpp">
 			</File>
 			<File
@@ -201,6 +207,12 @@
 			</File>
 			<File
 				RelativePath=".\TerminalBuffer.h">
+			</File>
+			<File
+				RelativePath=".\Utility.cpp">
+			</File>
+			<File
+				RelativePath=".\Utility.h">
 			</File>
 			<Filter
 				Name="Assets"

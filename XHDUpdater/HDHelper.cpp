@@ -36,82 +36,6 @@ uint32_t HDHelper::ReadVersion()
            (uint32_t)(v4 & 0xFF);
 }
 
-HDHelper::EncoderEnum HDHelper::GetEncoder() 
-{
-    DWORD temp = 0;
-    if (HalReadSMBusByte(0x8A, 0x00, &temp) == 0) {
-        return EncoderConexant;
-    } else if (HalReadSMBusByte(0xD4, 0x00, &temp) == 0) {
-        return EncoderFocus;
-    }
-    return EncoderXcalibur;
-}
-
-uint8_t* HDHelper::LoadFirmware(uint32_t* firmwareSize)
-{
-    OBJECT_ATTRIBUTES objectAttributes;
-    IO_STATUS_BLOCK iostatusBlock;
-    HANDLE fileHandle;
-    NTSTATUS status;
-    FILE_NETWORK_OPEN_INFORMATION fileInfo;
-
-    char appPath[500];
-	memset(&appPath, 0, sizeof(appPath));
-	strncpy(appPath, XeImageFileName->Buffer, XeImageFileName->Length);
-	strrchr(appPath, '\\')[0] = 0;
-     
-    std::string firmwarePath = appPath;
-    EncoderEnum encoder = GetEncoder();
-    if (encoder = HDHelper::EncoderConexant) {
-        firmwarePath += "\\firmware_conexant.bin";
-    } else if (encoder = HDHelper::EncoderFocus) {
-        firmwarePath += "\\firmware_focus.bin";
-    } else if (encoder = HDHelper::EncoderXcalibur) {
-        firmwarePath += "\\firmware_xcalibur.bin";
-    }
-
-    STRING firmwarePathString;
-    firmwarePathString.Buffer = (PSTR)firmwarePath.c_str();
-    firmwarePathString.Length = strlen(firmwarePathString.Buffer);
-    firmwarePathString.MaximumLength = firmwarePathString.Length + 1;
-
-    objectAttributes.Attributes = OBJ_CASE_INSENSITIVE;
-    objectAttributes.ObjectName = &firmwarePathString;
-    objectAttributes.RootDirectory = 0;
-
-    status = NtOpenFile(&fileHandle, GENERIC_READ | SYNCHRONIZE, &objectAttributes, &iostatusBlock, FILE_SHARE_READ, FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE);
-    if (status != 0) 
-    {
-        return NULL;
-    }
-
-    status = NtQueryInformationFile(fileHandle, &iostatusBlock, &fileInfo, sizeof(fileInfo), FileNetworkOpenInformation);
-    if (status != 0) 
-    {
-        NtClose(fileHandle);
-        return NULL;
-    }
-
-    *firmwareSize = fileInfo.EndOfFile.LowPart;
-    if (fileInfo.EndOfFile.HighPart > 0) 
-    {
-        NtClose(fileHandle);
-        return NULL;
-    }
-
-    uint8_t* firmwareData = (uint8_t*)malloc(*firmwareSize);
-    status = NtReadFile(fileHandle, NULL, NULL, NULL, &iostatusBlock, firmwareData, *firmwareSize, NULL);
-    NtClose(fileHandle);
-
-    if (status != 0)
-    {
-        free(firmwareData);
-        return NULL;
-    }
-
-    return firmwareData;
-}
-
 uint8_t HDHelper::GetMode()
 {
     const UCHAR slaveAddr = (UCHAR)(I2C_SLAVE_ADDR << 1);
@@ -192,11 +116,8 @@ bool HDHelper::FlashApplication(uint8_t* firmware, uint32_t firmwareSize)
 {
     const UCHAR slaveAddr = (UCHAR)(I2C_SLAVE_ADDR << 1);
 
-    uint32_t firmwareOffset = BOOTLOADER_SIZE;
-    uint32_t bytesRemaining = firmwareSize - BOOTLOADER_SIZE;
-
-    HalWriteSMBusByte(slaveAddr, I2C_HDMI_COMMAND_WRITE_RAM_BANK, 0);
-    Sleep(1);
+    uint32_t firmwareOffset = XHD_BOOTLOADER_SIZE;
+    uint32_t bytesRemaining = firmwareSize - XHD_BOOTLOADER_SIZE;
 
     uint8_t* buffer = (uint8_t*)malloc(1024);
     if (buffer == NULL)
@@ -205,10 +126,68 @@ bool HDHelper::FlashApplication(uint8_t* firmware, uint32_t firmwareSize)
         return false;
     }
 
+    HalWriteSMBusByte(slaveAddr, I2C_HDMI_COMMAND_WRITE_RAM_BANK, 0);
+    Sleep(1);
+
     HalWriteSMBusByte(slaveAddr, I2C_HDMI_COMMAND_WRITE_APP_FLASH_MODE, 1);
     Sleep(1);
 
-    uint8_t page = BOOTLOADER_BANK_START;
+    uint8_t page = XHD_BOOTLOADER_BANK_START;
+    while (bytesRemaining > 0)
+    {
+        uint32_t chunkSize = min(bytesRemaining, 1024);
+
+        memset(buffer, 0xff, 1024);
+        memcpy(buffer, firmware + firmwareOffset, chunkSize);
+        uint32_t checksumBuffer = CRC32::Calculate(buffer, 1024);
+
+        while (true)
+        {
+            TerminalBuffer::Write("Writing Page: %i (%08x)", page, checksumBuffer);
+            WritePage(page, buffer);
+            uint32_t checksumRam = ReadPageChecksum(page);
+            if (checksumRam != checksumBuffer)
+            {
+                TerminalBuffer::Write(" - Failed (Retrying)\n");
+                continue;
+            }           
+            TerminalBuffer::Write(" - OK\n");
+            break;
+        }
+
+        firmwareOffset += chunkSize;
+        bytesRemaining -= chunkSize;
+        page++;
+    }
+
+    HalWriteSMBusByte(slaveAddr, I2C_HDMI_COMMAND_WRITE_APP_FLASH_MODE, 0);
+    Sleep(1);
+
+    free(buffer);
+    return true;
+}
+
+bool HDHelper::FlashBootloader(uint8_t* firmware, uint32_t firmwareSize)
+{
+    const UCHAR slaveAddr = (UCHAR)(I2C_SLAVE_ADDR << 1);
+
+    uint32_t firmwareOffset = 0;
+    uint32_t bytesRemaining = XHD_BOOTLOADER_SIZE;
+
+    uint8_t* buffer = (uint8_t*)malloc(1024);
+    if (buffer == NULL)
+    {
+        TerminalBuffer::Write("Allocate Memory Failed\n");
+        return false;
+    }
+
+    HalWriteSMBusByte(slaveAddr, I2C_HDMI_COMMAND_WRITE_RAM_BANK, 0);
+    Sleep(1);
+
+    HalWriteSMBusByte(slaveAddr, I2C_HDMI_COMMAND_WRITE_APP_FLASH_MODE, 1);
+    Sleep(1);
+
+    uint8_t page = 0;
     while (bytesRemaining > 0)
     {
         uint32_t chunkSize = min(bytesRemaining, 1024);
